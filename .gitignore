@@ -1,0 +1,21 @@
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs / debugging
+*.log
+npm-debug.log*
+
+# Node (in case we add a server later)
+node_modules/
+.env
+
+# Claude / AI tooling
+.claude/

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Singapore Mahjong</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ RED CHINESE-PATTERN BORDER ============ -->
+  <div class="frame">
+
+    <!-- Top border: HUAT / WALAO / FASTER ........ OPTIONS / round indicator -->
+    <div class="frame-top">
+      <div class="frame-top-left">
+        <button class="text-btn huat"   data-call="huat">HUAT</button>
+        <button class="text-btn walao"  data-call="walao">WALAO</button>
+        <button class="text-btn faster" data-call="faster">FASTER</button>
+      </div>
+      <div class="frame-top-right">
+        <button class="text-btn options" id="options-btn">OPTIONS</button>
+        <div class="round-line">
+          <span id="round-wind">East</span>
+          <span class="cn">東</span>
+          <span id="round-num">1</span>
+          <span class="tiles-left-pill"><span id="tiles-left">81</span> left</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ STAGE: green felt with 3D perspective ============ -->
+    <main class="stage">
+      <div class="scene">
+        <div class="table" id="table">
+
+          <!-- Faint centre seal -->
+          <div class="center-seal"></div>
+
+          <!-- Wind labels (orange, inside walls) -->
+          <div class="wind-label wind-N">North <span class="cn">北</span></div>
+          <div class="wind-label wind-E">East  <span class="cn">東</span></div>
+          <div class="wind-label wind-S">South <span class="cn">南</span></div>
+          <div class="wind-label wind-W">West  <span class="cn">西</span></div>
+
+          <!-- Walls (3D blue blocks) -->
+          <div class="wall wall-top"    id="wall-top"></div>
+          <div class="wall wall-bottom" id="wall-bottom"></div>
+          <div class="wall wall-left"   id="wall-left"></div>
+          <div class="wall wall-right"  id="wall-right"></div>
+
+          <!-- Discards (centre) -->
+          <div class="discards" id="discards"></div>
+
+          <!-- Opponent concealed hands -->
+          <div class="opp-hand opp-top"   id="opp-top-hand"></div>
+          <div class="opp-hand opp-left"  id="opp-left-hand"></div>
+          <div class="opp-hand opp-right" id="opp-right-hand"></div>
+
+          <!-- Exposed melds -->
+          <div class="melds melds-bottom" id="melds-bottom"></div>
+          <div class="melds melds-top"    id="melds-top"></div>
+          <div class="melds melds-left"   id="melds-left"></div>
+          <div class="melds melds-right"  id="melds-right"></div>
+
+          <!-- Flowers / seasons / animals (opponents only — Myself's are on the rack) -->
+          <div class="flowers flowers-top"    id="flowers-top"></div>
+          <div class="flowers flowers-left"   id="flowers-left"></div>
+          <div class="flowers flowers-right"  id="flowers-right"></div>
+
+        </div>
+      </div>
+
+      <!-- Player names — white text, no plates. Sides are rotated. -->
+      <div class="player-name name-top"><span id="name-top">Ming Yi</span><span class="score" id="score-top">$2000</span></div>
+      <div class="player-name name-left"><span id="name-left">Jing Wen</span><span class="score" id="score-left">$2000</span></div>
+      <div class="player-name name-right"><span id="name-right">Wilson</span><span class="score" id="score-right">$2000</span></div>
+
+      <!-- Action buttons (HU / PONG / KONG / CHI / PASS) -->
+      <div class="actions" id="actions"></div>
+
+      <!-- Side chevrons -->
+      <button class="chevron chevron-left">&#10094;</button>
+      <button class="chevron chevron-right">&#10095;</button>
+    </main>
+
+    <!-- ============ BOTTOM: cream hand rack ============ -->
+    <footer class="hand-area">
+      <div class="hand-rack">
+        <!-- Myself's bonus tiles + name plate live on the rack so they're clearly the player's -->
+        <div class="rack-side rack-left">
+          <div class="player-name name-bottom">
+            <span id="name-bottom">Myself</span>
+            <span class="score" id="score-bottom">$2000</span>
+          </div>
+          <div class="flowers flowers-bottom" id="flowers-bottom"></div>
+        </div>
+        <div class="player-hand" id="player-hand"></div>
+        <div class="player-draw" id="player-draw"></div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- ============ MODAL: round result ============ -->
+  <div class="modal-backdrop hidden" id="modal-backdrop">
+    <div class="modal" id="modal">
+      <div class="modal-header" id="modal-title">Hand</div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="modal-next">Next Hand</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: options ============ -->
+  <div class="modal-backdrop hidden" id="options-backdrop">
+    <div class="modal options-modal">
+      <div class="modal-header">Options</div>
+      <div class="modal-body">
+        <label class="opt-row"><span>Sound</span><input type="checkbox" id="opt-sound" checked /></label>
+        <label class="opt-row"><span>Music</span><input type="checkbox" id="opt-music" checked /></label>
+        <label class="opt-row"><span>Auto-call your wins</span><input type="checkbox" id="opt-autohu" /></label>
+        <label class="opt-row">
+          <span>Tai cap</span>
+          <select id="opt-cap">
+            <option value="3">3 tai</option>
+            <option value="5" selected>5 tai</option>
+            <option value="10">10 tai</option>
+          </select>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary"   id="options-close">Close</button>
+        <button class="btn-secondary" id="restart-game">New Game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+</div>
+
+<script src="js/tiles.js"></script>
+<script src="js/scoring.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/render.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

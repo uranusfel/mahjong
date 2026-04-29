@@ -1,0 +1,759 @@
+/* ============================================================
+   style.css — Singapore Mahjong, 3D landscape table
+   Red Chinese-pattern border + green felt + 3D walls.
+   ============================================================ */
+
+:root {
+  /* Responsive tile sizes — scale with viewport so things stay legible
+     on smaller windows / mobile / browser zoom. */
+  --tile-w:        clamp(20px, 2.4vw, 38px);
+  --tile-h:        clamp(30px, 3.6vw, 56px);
+  --tile-w-sm:     clamp(14px, 1.7vw, 26px);
+  --tile-h-sm:     clamp(22px, 2.7vw, 40px);
+
+  /* Wall stacks (face-down 3D blocks) */
+  --wall-w:        clamp(12px, 1.5vw, 22px);
+  --wall-h:        clamp(20px, 2.5vw, 38px);
+
+  /* Opponent concealed-hand tiles (face-down, sit just inside their wall) */
+  --opp-w:         clamp(14px, 1.35vw, 20px);
+  --opp-h:         clamp(20px, 2vw,    30px);
+
+  /* Discard pile tiles */
+  --discard-w:     clamp(14px, 1.35vw, 20px);
+  --discard-h:     clamp(20px, 1.9vw,  28px);
+
+  --border-h:      clamp(42px, 5.5vh, 62px);
+  --rack-h:        clamp(80px, 13vh, 130px);
+
+  --red-1:         #b22222;
+  --red-2:         #8b1313;
+  --red-3:         #5e0a0a;
+
+  --felt-1:        #1d6b3a;
+  --felt-2:        #0e4a26;
+
+  --wall-cream:    #f0e6c8;
+  --wall-blue-1:   #2d5fa0;
+  --wall-blue-2:   #1a3a72;
+  --wall-blue-3:   #0e2552;
+
+  --gold:          #f0b73a;
+  --gold-text:     #f4a615;
+  --orange-wind:   #f0a022;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #1b0808;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  color: #fff;
+  overflow: hidden;
+  user-select: none;
+}
+
+#app { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+
+/* ============================================================
+   RED CHINESE-PATTERN BORDER FRAME
+   ============================================================ */
+.frame {
+  position: absolute; inset: 0;
+  display: grid;
+  grid-template-rows: var(--border-h) 1fr var(--rack-h);
+  background:
+    /* Subtle scallop/cloud pattern */
+    repeating-radial-gradient(circle at 12px 12px,
+      rgba(255,255,255,0.04) 0 1px,
+      transparent 1px 12px),
+    repeating-radial-gradient(circle at 24px 24px,
+      rgba(0,0,0,0.10) 0 1px,
+      transparent 1px 16px),
+    /* Diagonal red gradient */
+    linear-gradient(135deg, var(--red-1) 0%, var(--red-2) 50%, var(--red-3) 100%);
+}
+.frame::before, .frame::after {
+  /* Inner shadow on border so the felt looks recessed */
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+}
+.frame::before {
+  inset: var(--border-h) 0 var(--rack-h);
+  box-shadow: inset 0 6px 14px rgba(0,0,0,0.55);
+}
+
+/* ============================================================
+   TOP BORDER STRIP — HUAT/WALAO/FASTER + OPTIONS + round
+   ============================================================ */
+.frame-top {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(10px, 1.5vw, 22px);
+  height: var(--border-h);
+}
+.frame-top-left,
+.frame-top-right {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.5vw, 22px);
+}
+.frame-top-right { gap: clamp(8px, 1.3vw, 18px); }
+
+.text-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: "Trebuchet MS", "Impact", "Arial Black", sans-serif;
+  font-weight: 900;
+  font-size: clamp(15px, 1.6vw, 24px);
+  letter-spacing: 1px;
+  color: var(--gold-text);
+  text-shadow:
+    0 1px 0 rgba(0,0,0,0.6),
+    0 2px 4px rgba(0,0,0,0.5);
+  padding: 4px 6px;
+  transition: transform .08s ease, color .15s ease;
+}
+.text-btn:hover  { transform: translateY(-1px); color: #ffd24a; }
+.text-btn:active { transform: translateY(1px); }
+
+.round-line {
+  font-weight: 800;
+  font-size: clamp(13px, 1.3vw, 18px);
+  color: #ffeec2;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.round-line .cn { font-size: clamp(15px, 1.5vw, 21px); }
+.tiles-left-pill {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffeec2;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(240,183,58,0.5);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+  letter-spacing: 0.3px;
+}
+
+/* ============================================================
+   STAGE — green felt with 3D perspective
+   ============================================================ */
+.stage {
+  position: relative;
+  perspective: 1500px;
+  perspective-origin: 50% 32%;
+  overflow: visible;
+}
+.scene {
+  position: absolute;
+  inset: 0;                /* felt fills edge-to-edge between top bar and rack */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.table {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* Green felt — solid + subtle Chinese wave pattern */
+  background:
+    repeating-radial-gradient(circle at 30px 30px,
+      rgba(255,255,255,0.03) 0 16px,
+      transparent 16px 30px),
+    radial-gradient(ellipse at center, var(--felt-1) 0%, var(--felt-2) 75%);
+  border-radius: 0;        /* square — meets the red border with no gap */
+  transform: rotateX(34deg);
+  transform-style: preserve-3d;
+  box-shadow:
+    inset 0 0 60px rgba(0,0,0,0.45),
+    0 12px 30px rgba(0,0,0,0.55);
+}
+
+/* Faint dragon/horse seal in centre */
+.center-seal {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 280px; height: 280px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(240,183,58,0.10) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+/* ---- Centre info overlay ---------------------------------------- */
+.center-info {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #ffeec2;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.7);
+  pointer-events: none;
+  z-index: 3;
+  margin-top: 26px;     /* sits below dragon seal */
+}
+.center-info .prevailing {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #fff;
+}
+.center-info .prevailing .cn { margin-left: 6px; font-size: 32px; }
+.center-info .banker-line { font-size: 14px; margin-top: 6px; opacity: 0.95; }
+.center-info .banker-line .dot { margin: 0 6px; opacity: 0.6; }
+.center-info .tiles-left-line { font-size: 11px; opacity: 0.6; margin-top: 2px; }
+
+/* ---- Wind labels (orange, inside walls) ------------------------- */
+.wind-label {
+  position: absolute;
+  font-size: clamp(12px, 1.3vw, 18px);
+  font-weight: 900;
+  color: var(--orange-wind);
+  letter-spacing: 1px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  pointer-events: none;
+  z-index: 2;
+  white-space: nowrap;
+}
+.wind-label .cn { font-size: clamp(14px, 1.6vw, 22px); margin-left: 4px; }
+
+/* Wind labels live in the corners — each one tucked near its player's wall
+   but offset away from the meld/discard zones so they're never overlapped. */
+.wind-N { left:  12%; top:    18%; }   /* Jing Wen — top of left side */
+.wind-W { top:   10%; right:  22%; }   /* Ming Yi  — right of top side */
+.wind-S { right: 12%; bottom: 18%; }   /* Wilson   — bottom of right side */
+.wind-E { bottom: 8%; left:   22%; }   /* Myself   — left of bottom side */
+
+/* ============================================================
+   WALLS — 3D blue blocks around the felt edge
+   ============================================================ */
+.wall {
+  position: absolute;
+  display: flex;
+  gap: 1px;
+  z-index: 2;
+}
+.wall-top    { top: 6%;    left: 50%; transform: translateX(-50%); flex-direction: row; }
+.wall-bottom { bottom: 6%; left: 50%; transform: translateX(-50%); flex-direction: row; }
+.wall-left   { left: 6%;   top:  50%; transform: translateY(-50%); flex-direction: column; }
+.wall-right  { right: 6%;  top:  50%; transform: translateY(-50%); flex-direction: column; }
+
+/* Single-row tall 3D block — cream top + dark blue body */
+.stack {
+  width: var(--wall-w);
+  height: var(--wall-h);
+  background:
+    /* cream top face */
+    linear-gradient(180deg,
+      var(--wall-cream) 0,
+      var(--wall-cream) 7px,
+      transparent 7px),
+    /* blue body with shading */
+    linear-gradient(180deg,
+      var(--wall-blue-1) 7px,
+      var(--wall-blue-2) 60%,
+      var(--wall-blue-3) 100%);
+  border: 1px solid var(--wall-blue-3);
+  border-top-color: #846f3a;
+  border-radius: 2px 2px 1px 1px;
+  box-shadow:
+    inset 1px 0 0 rgba(255,255,255,0.06),
+    inset -1px 0 0 rgba(0,0,0,0.25),
+    0 3px 4px rgba(0,0,0,0.45);
+  position: relative;
+}
+.stack.half { width: calc(var(--wall-w) * 0.65); }
+
+/* Vertical walls — same block shape but rotated for the side view */
+.wall-left .stack,
+.wall-right .stack {
+  width: var(--wall-h);
+  height: var(--wall-w);
+  background:
+    linear-gradient(90deg,
+      var(--wall-cream) 0,
+      var(--wall-cream) 7px,
+      transparent 7px),
+    linear-gradient(90deg,
+      var(--wall-blue-1) 7px,
+      var(--wall-blue-2) 60%,
+      var(--wall-blue-3) 100%);
+  border-radius: 2px;
+}
+
+/* ============================================================
+   OPPONENT CONCEALED HANDS — sit just inside their wall
+   ============================================================ */
+.opp-hand {
+  position: absolute;
+  display: flex;
+  gap: 1px;
+  z-index: 3;
+}
+.opp-top   { top: 16%;   left: 50%; transform: translateX(-50%); flex-direction: row; }
+.opp-left  { left: 16%;  top: 50%;  transform: translateY(-50%); flex-direction: column; }
+.opp-right { right: 16%; top: 50%;  transform: translateY(-50%); flex-direction: column; }
+
+.opp-tile {
+  width: var(--opp-w);
+  height: var(--opp-h);
+  background:
+    linear-gradient(180deg, var(--wall-cream) 0 5px, transparent 5px),
+    linear-gradient(180deg, var(--wall-blue-1) 5px, var(--wall-blue-2) 100%);
+  border: 1px solid var(--wall-blue-3);
+  border-radius: 2px;
+  box-shadow: 0 2px 2px rgba(0,0,0,0.35);
+}
+.opp-left .opp-tile,
+.opp-right .opp-tile {
+  width: var(--opp-h);
+  height: var(--opp-w);
+  background:
+    linear-gradient(90deg, var(--wall-cream) 0 5px, transparent 5px),
+    linear-gradient(90deg, var(--wall-blue-1) 5px, var(--wall-blue-2) 100%);
+}
+
+/* ============================================================
+   DISCARDS — centre grid
+   ============================================================ */
+.discards {
+  position: absolute;
+  left: 50%;
+  top: 32%;                                /* anchored at top — grows downward only */
+  transform: translateX(-50%);
+  width: clamp(220px, 22vw, 320px);
+  min-height: clamp(40px, 5vh, 56px);
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);  /* wider grid → grows sideways, not down */
+  gap: 2px;
+  padding: 4px;
+  z-index: 2;
+}
+.discard-tile {
+  width: var(--discard-w);
+  height: var(--discard-h);
+  background-color: #f5ecd6;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 3px;
+  border: 1px solid #b9a36a;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.35);
+}
+.discard-tile.last {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+  animation: lastPulse 1.2s ease-out;
+}
+@keyframes lastPulse {
+  from { box-shadow: 0 0 0 6px rgba(240,183,58,0.7); }
+  to   { box-shadow: 0 0 0 0 rgba(240,183,58,0); }
+}
+
+/* ============================================================
+   TILE FACE — used in player hand, melds, win modal
+   ============================================================ */
+.tile-face {
+  position: relative;
+  width: var(--tile-w);
+  height: var(--tile-h);
+  background: linear-gradient(180deg, #fff 0%, #f6ecd0 60%, #e8d8aa 100%);
+  border: 1px solid #b89c5e;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 -2px 0 rgba(0,0,0,0.18),
+    0 3px 3px rgba(0,0,0,0.45);
+  cursor: pointer;
+  transition: transform .12s ease;
+  overflow: hidden;
+}
+.tile-face:hover:not(.no-hover) { transform: translateY(-8px); }
+.tile-face.no-hover { cursor: default; }
+.tile-face.dim { opacity: 0.45; }
+.tile-face.tile-sm {
+  width: var(--tile-w-sm);
+  height: var(--tile-h-sm);
+  border-radius: 3px;
+}
+.tile-face-img {
+  position: absolute;
+  inset: 2px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Animal tile overlay */
+.animal-char {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #c91c1c;
+  font-family: KaiTi, "楷体", "STKaiti", "Cambria", serif;
+  font-weight: 700;
+  font-size: clamp(16px, 2vw, 28px);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+}
+.tile-sm .animal-char { font-size: clamp(12px, 1.4vw, 20px); }
+
+/* ============================================================
+   MELDS — head faces centre via inner-image rotation
+   ============================================================ */
+.melds {
+  position: absolute;
+  display: flex;
+  gap: 4px;
+  z-index: 3;
+}
+.melds-bottom { bottom:  4%; left: 50%; transform: translateX(-50%); flex-direction: row; }
+.melds-top    { top:    22%; left: 50%; transform: translateX(-50%); flex-direction: row; }
+.melds-left   { left:   18%; top:  50%; transform: translateY(-50%); flex-direction: column; }
+.melds-right  { right:  18%; top:  50%; transform: translateY(-50%); flex-direction: column; }
+
+.meld { display: flex; gap: 1px; }
+.melds-left .meld, .melds-right .meld { flex-direction: column; }
+
+.melds-top   .tile-face .tile-face-img { transform: rotate(180deg); }
+.melds-left  .tile-face .tile-face-img { transform: rotate(90deg);  }
+.melds-right .tile-face .tile-face-img { transform: rotate(-90deg); }
+
+.melds-left  .tile-face,
+.melds-right .tile-face {
+  width: var(--tile-h-sm);
+  height: var(--tile-w-sm);
+}
+
+/* ============================================================
+   FLOWERS / SEASONS / ANIMALS
+   Opponent flowers: tucked next to their wall, on the centre side, so
+   ownership is visually unambiguous. Myself's flowers live on the rack.
+   ============================================================ */
+.flowers {
+  display: flex;
+  gap: 3px;
+  padding: 4px 6px;
+  background: rgba(0,0,0,0.22);
+  border-radius: 6px;
+}
+.flowers:not(.flowers-bottom) { position: absolute; z-index: 3; }
+/* All trays stack horizontally so they grow sideways and never climb into
+   the wind labels above (e.g. South 南 sits just over Wilson's tray). */
+.flowers-top   { top:   12%; right:  6%;  flex-direction: row; }
+.flowers-left  { left:  12%; top:    8%;  flex-direction: row; }
+.flowers-right { right: 12%; bottom: 8%;  flex-direction: row; }
+.flowers:empty { display: none; }
+
+/* ============================================================
+   PLAYER NAMES — white text, outside the felt
+   ============================================================ */
+.player-name {
+  position: absolute;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  color: #fff;
+  font-weight: 700;
+  font-size: clamp(13px, 1.3vw, 18px);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 0 6px rgba(0,0,0,0.5);
+  pointer-events: none;
+  z-index: 5;
+}
+.player-name .score {
+  font-size: clamp(9px, 0.85vw, 11px);
+  color: var(--gold);
+  font-weight: 600;
+  opacity: 0.9;
+}
+.player-name.is-turn {
+  color: #fff;
+  text-shadow:
+    0 1px 3px rgba(0,0,0,0.8),
+    0 0 14px rgba(240,183,58,0.95),
+    0 0 6px rgba(255,255,255,0.4);
+}
+
+.name-top   { top: calc(var(--border-h) + 12px); left: 50%; transform: translateX(-50%); }
+.name-left  {
+  left: 56px; top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: center;
+}
+.name-right {
+  right: 56px; top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+  transform-origin: center;
+}
+/* Myself plate sits on the rack — overrides absolute positioning */
+.name-bottom {
+  position: static;
+  flex-direction: row;
+  gap: 8px;
+  align-items: baseline;
+  font-size: clamp(12px, 1.2vw, 16px);
+  text-shadow: none;
+  color: #4a2200;
+}
+.name-bottom .score { color: #8a4f10; opacity: 1; }
+.name-bottom.is-turn {
+  color: #b3331c;
+  text-shadow: 0 0 8px rgba(255,200,80,0.6);
+}
+
+/* ============================================================
+   BOTTOM HAND AREA — cream rack with face-up tiles
+   ============================================================ */
+.hand-area {
+  position: relative;
+  z-index: 3;
+  height: var(--rack-h);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 8px clamp(20px, 4vw, 60px) 14px;
+  background:
+    /* subtle inner shadow at top to recess the felt */
+    linear-gradient(180deg, rgba(0,0,0,0.4) 0 8px, transparent 8px);
+}
+.hand-rack {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.2vw, 14px);
+  width: 100%;
+  max-width: 1100px;
+  min-height: clamp(60px, 8vh, 80px);
+  padding: clamp(6px, 0.8vw, 10px) clamp(10px, 1.5vw, 18px) clamp(8px, 1vw, 12px);
+  background: linear-gradient(180deg,
+    #fff5d8 0%,
+    #f0dfa5 60%,
+    #c9a85d 100%);
+  border: 2px solid #8a6a2c;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 2px 4px rgba(255,255,255,0.6),
+    inset 0 -3px 6px rgba(120,80,20,0.4),
+    0 6px 12px rgba(0,0,0,0.5);
+}
+
+/* Left side of rack: Myself's name + bonus tray */
+.rack-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: clamp(70px, 7vw, 100px);
+}
+.rack-side .flowers { background: rgba(120,80,20,0.18); }
+.rack-side .flowers:empty { display: none; }
+
+.player-hand,
+.player-draw {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(2px, 0.3vw, 4px);
+}
+.player-hand { flex: 1; justify-content: center; }
+.player-draw {
+  min-width: var(--tile-w);
+  transition: opacity .2s ease;
+}
+
+/* ============================================================
+   ACTION BUTTONS (HU / PONG / KONG / CHI / PASS)
+   ============================================================ */
+.actions {
+  position: absolute;
+  bottom: calc(var(--rack-h) + 12px);
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 8;
+}
+.action-btn {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 22px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.5),
+    inset 0 -2px 4px rgba(0,0,0,0.3),
+    0 3px 6px rgba(0,0,0,0.5);
+}
+.action-btn.hu   { background: linear-gradient(180deg, #ffd24a, #c8901c); color: #4a2200; }
+.action-btn.pong { background: linear-gradient(180deg, #ff6f4f, #b3331c); }
+.action-btn.kong { background: linear-gradient(180deg, #c84cff, #6a1ca8); }
+.action-btn.chi  { background: linear-gradient(180deg, #4cb6ff, #1c5aa8); }
+.action-btn.pass { background: linear-gradient(180deg, #777, #333); }
+
+/* ============================================================
+   SIDE CHEVRONS
+   ============================================================ */
+.chevron {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  z-index: 6;
+}
+.chevron-left  { left: 10px; }
+.chevron-right { right: 10px; }
+.chevron:hover { background: rgba(0,0,0,0.75); }
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal-backdrop.hidden { display: none; }
+.modal {
+  background: linear-gradient(180deg, #2b1409, #1a0c05);
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 22px 26px;
+  min-width: 360px;
+  max-width: 90vw;
+  color: #ffeec2;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.modal-header {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 14px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
+.modal-body { font-size: 14px; line-height: 1.45; }
+.modal-footer {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.btn-primary, .btn-secondary {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  padding: 10px 22px;
+  border-radius: 22px;
+  font-weight: 800;
+  font-size: 14px;
+  color: #4a2200;
+  background: linear-gradient(180deg, #ffe78a, #f3a917);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 4px rgba(0,0,0,0.45);
+}
+.btn-secondary { background: linear-gradient(180deg, #aaa, #555); color: #fff; }
+
+.win-tiles {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 3px;
+  justify-content: center;
+  margin: 8px 0 14px;
+}
+.tai-list {
+  background: rgba(0,0,0,0.3);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 8px 0;
+}
+.tai-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 2px 0;
+  border-bottom: 1px dashed rgba(255,255,255,0.1);
+}
+.tai-row:last-child { border-bottom: 0; }
+.tai-total {
+  text-align: right;
+  font-weight: 900;
+  color: var(--gold);
+  margin-top: 4px;
+  font-size: 16px;
+}
+.score-summary {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.score-summary > div { padding: 2px 0; }
+
+.opt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(255,255,255,0.1);
+  font-size: 14px;
+}
+.opt-row:last-child { border-bottom: 0; }
+.opt-row select {
+  background: #1a0c05;
+  color: #ffeec2;
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+.toast {
+  position: fixed;
+  bottom: calc(var(--rack-h) + 24px);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(20, 8, 4, 0.92);
+  border: 1px solid var(--gold);
+  color: #ffeec2;
+  padding: 8px 18px;
+  border-radius: 22px;
+  font-weight: 700;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity .2s ease, transform .2s ease;
+  pointer-events: none;
+  z-index: 200;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
