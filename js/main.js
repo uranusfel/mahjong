@@ -96,7 +96,7 @@
   function humanDiscard(tile) {
     if (state.currentTurn !== HUMAN_SEAT || state.phase !== 'waitingDiscard') return;
     Engine.discard(state, HUMAN_SEAT, tile);
-    Sound.discard();
+    Sound.discard(tile);
     afterDiscard();
   }
 
@@ -415,7 +415,7 @@
       }
       const tile = AI.pickDiscard(player, player.seatWind, state.roundWind);
       Engine.discard(state, seat, tile);
-      Sound.discard();
+      Sound.discard(tile);
       render();
       setTimeout(afterDiscard, 400);
     }
