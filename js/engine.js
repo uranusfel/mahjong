@@ -4,9 +4,10 @@
 
 (function () {
 
-  // Player seats: 0 = bottom (you), 1 = right, 2 = top, 3 = left.
-  // Seat winds rotate per hand: hand 0 → seat winds [E,S,W,N] for [0,1,2,3].
-  // After East loses, seats rotate (banker becomes next).
+  // Player seats: 0 = bottom (you / East), 1 = left (South), 2 = top (West), 3 = right (North).
+  // Turn order goes by seat index ascending (counter-clockwise visually):
+  // East → South → West → North. The next seat (chi-eligible) sits on your left.
+  // Seat winds rotate per hand: hand 0 → seat winds [E,S,W,N] for seats [0,1,2,3].
   const SEAT_WIND_BASE = [1, 2, 3, 4]; // E S W N
 
   const DEAD_WALL_SIZE = 14;

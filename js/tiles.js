@@ -56,7 +56,8 @@ function sortTiles(arr) {
   return arr.slice().sort((a, b) => tileSortKey(a) - tileSortKey(b));
 }
 
-// Build a fresh shuffled wall of 144 tiles
+// Build a fresh shuffled wall of 148 tiles
+// (108 suited + 16 winds + 12 dragons + 4 flowers + 4 seasons + 4 animals)
 function buildWall() {
   const wall = [];
   let uid = 0;

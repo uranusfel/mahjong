@@ -6,9 +6,10 @@
 
   const $ = (id) => document.getElementById(id);
 
-  // Seat positions on screen:
-  // 0 = bottom (Myself), 1 = right, 2 = top, 3 = left
-  const SEAT_POS = ['bottom', 'right', 'top', 'left'];
+  // Seat positions on screen — turn order is counter-clockwise (E→S→W→N),
+  // so the seat that follows you sits on your LEFT.
+  // 0 = bottom (Myself / East), 1 = left (South), 2 = top (West), 3 = right (North)
+  const SEAT_POS = ['bottom', 'left', 'top', 'right'];
 
   function tileFaceEl(t, opts = {}) {
     const el = document.createElement('div');
