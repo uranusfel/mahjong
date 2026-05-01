@@ -143,6 +143,42 @@
 
   // ---- Player hand (bottom) ------------------------------------------
 
+  // Count how many copies of (suit,num) are visible to the human player —
+  // own concealed (incl. the hovered tile itself) + every discard + every
+  // tile in any exposed/declared meld across all players. Concealed kongs
+  // are counted because they're rendered face-up in this UI.
+  function countSeenTiles(state, suit, num) {
+    let n = 0;
+    for (const t of state.players[0].concealed) {
+      if (t.suit === suit && t.num === num) n++;
+    }
+    for (const d of state.discards) {
+      if (d.tile.suit === suit && d.tile.num === num) n++;
+    }
+    for (const p of state.players) {
+      for (const m of p.melds) {
+        for (const t of m.tiles) {
+          if (t.suit === suit && t.num === num) n++;
+        }
+      }
+    }
+    return n;
+  }
+
+  function attachTileCounterHover(el, tile, state) {
+    const counterEl = $('tile-counter');
+    if (!counterEl) return;
+    el.addEventListener('mouseenter', () => {
+      const seen = countSeenTiles(state, tile.suit, tile.num);
+      const remaining = Math.max(0, 4 - seen);
+      counterEl.textContent = `${remaining} LEFT`;
+      counterEl.classList.add('show');
+    });
+    el.addEventListener('mouseleave', () => {
+      counterEl.classList.remove('show');
+    });
+  }
+
   function renderPlayerHand(state, callbacks) {
     const human = state.players[0];
     const handEl = $('player-hand');
@@ -168,6 +204,7 @@
       el.addEventListener('click', () => {
         if (isMyTurn) callbacks.onDiscard(t);
       });
+      attachTileCounterHover(el, t, state);
       handEl.appendChild(el);
     }
 
@@ -177,6 +214,7 @@
       el.addEventListener('click', () => {
         if (isMyTurn) callbacks.onDiscard(drawnTile);
       });
+      attachTileCounterHover(el, drawnTile, state);
       drawEl.appendChild(el);
     } else {
       drawEl.style.opacity = '0';

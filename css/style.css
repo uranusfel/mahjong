@@ -182,6 +182,30 @@ html, body {
 .text-btn:hover  { transform: translateY(-1px); color: #ffd24a; }
 .text-btn:active { transform: translateY(1px); }
 
+/* Tile counter shown when hovering a tile in the hand — sits dead-centre
+   between FASTER and OPTIONS, styled identically to the surrounding text-btns. */
+.tile-counter {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Trebuchet MS", "Impact", "Arial Black", sans-serif;
+  font-weight: 900;
+  font-size: clamp(15px, 1.6vw, 24px);
+  letter-spacing: 1px;
+  color: var(--gold-text);
+  text-shadow:
+    0 1px 0 rgba(0,0,0,0.6),
+    0 2px 4px rgba(0,0,0,0.5);
+  white-space: nowrap;
+  pointer-events: none;
+  padding: 0 clamp(48px, 8vw, 96px);   /* ~3 fingers of breathing room each side */
+  opacity: 0;
+  transition: opacity .12s ease;
+  z-index: 4;
+}
+.tile-counter.show { opacity: 1; }
+
 .round-line {
   font-weight: 800;
   font-size: clamp(13px, 1.3vw, 18px);
