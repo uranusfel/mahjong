@@ -33,18 +33,30 @@
       if (bySuit[s] > bestSuitCount) { bestSuit = s; bestSuitCount = bySuit[s]; }
     }
     const honorCount = bySuit.w + bySuit.d;
-
-    if (bestSuitCount >= 8 && honorCount === 0) return { kind: 'fullFlush', suit: bestSuit };
-    if (bestSuitCount >= 7 && honorCount >= 2)  return { kind: 'halfFlush', suit: bestSuit };
-
-    // All triplets — many pairs and no exposed chi
-    let pairs = 0;
-    for (const k of Object.keys(byTile)) if (byTile[k] >= 2) pairs++;
     const exposedPongs = player.melds.filter(m => m.type === 'pong' || m.type === 'kong').length;
     const exposedChis  = player.melds.filter(m => m.type === 'chi').length;
-    if (exposedChis === 0 && (exposedPongs >= 2 || pairs >= 4)) return { kind: 'allTriplets' };
 
-    // Dragons
+    // Pure honors push — 2+ honor pairs, chase 字一色 (5 tai) territory
+    let honorPairs = 0;
+    for (const k of Object.keys(byTile)) {
+      if ((k[0] === 'w' || k[0] === 'd') && byTile[k] >= 2) honorPairs++;
+    }
+    if (honorPairs >= 2 && bestSuitCount <= 4) return { kind: 'allHonors' };
+
+    // Lower thresholds so AI commits to flush earlier (chasing 4 tai)
+    if (exposedChis === 0 && bestSuitCount >= 6 && honorCount === 0) {
+      return { kind: 'fullFlush', suit: bestSuit };
+    }
+    if (exposedChis === 0 && bestSuitCount >= 5 && honorCount >= 2) {
+      return { kind: 'halfFlush', suit: bestSuit };
+    }
+
+    // All triplets (2 tai, stacks well with honors/pongs of dragons)
+    let pairs = 0;
+    for (const k of Object.keys(byTile)) if (byTile[k] >= 2) pairs++;
+    if (exposedChis === 0 && (exposedPongs >= 2 || pairs >= 3)) return { kind: 'allTriplets' };
+
+    // Dragons (each pong of dragons = 1 tai; 3 = big three dragons 4 tai)
     let dragonPairs = 0;
     for (let n = 1; n <= 3; n++) if ((byTile['d' + n] || 0) >= 2) dragonPairs++;
     if (dragonPairs >= 1) return { kind: 'dragons' };
@@ -52,6 +64,12 @@
     // Winds
     if ((byTile['w' + seatWind]  || 0) >= 2 ||
         (byTile['w' + roundWind] || 0) >= 2) return { kind: 'winds' };
+
+    // Last fallback — even with no pair, lean toward whichever suit dominates
+    // so we don't aimlessly play 1-tai chi hands.
+    if (exposedChis === 0 && bestSuitCount >= 4) {
+      return { kind: 'leanFlush', suit: bestSuit };
+    }
 
     return { kind: 'standard' };
   }
@@ -88,20 +106,29 @@
       if (n === 1 || n === 9) score -= 1;
     }
 
-    // Strategy adjustments
+    // Strategy adjustments — push harder so AI actually commits
     if (strategy.kind === 'fullFlush') {
-      if (tile.suit === strategy.suit) score += 14;
-      else                              score -= 18;   // dump everything else
+      if (tile.suit === strategy.suit) score += 22;
+      else                              score -= 28;   // dump everything else
     } else if (strategy.kind === 'halfFlush') {
-      if (tile.suit === strategy.suit) score += 12;
-      else if (Tiles.isSuited(tile))   score -= 14;    // dump other suits
-      // honors stay; they're allowed
+      if (tile.suit === strategy.suit) score += 18;
+      else if (Tiles.isSuited(tile))   score -= 22;    // dump other suits
+      else if (counts[k] >= 2)         score += 6;     // hold honor pairs
     } else if (strategy.kind === 'allTriplets') {
-      if (counts[k] === 1) score -= 10;                // lone tiles are dead
+      if (counts[k] === 1) score -= 14;                // lone tiles are dead
+      if (counts[k] >= 2)  score += 8;
+    } else if (strategy.kind === 'allHonors') {
+      if (tile.suit === 'w' || tile.suit === 'd') score += 16;
+      else                                          score -= 20;
     } else if (strategy.kind === 'dragons') {
-      if (tile.suit === 'd') score += 10;
+      if (tile.suit === 'd') score += 12;
+      if (tile.suit === 'w' && (tile.num === seatWind || tile.num === roundWind)) score += 4;
     } else if (strategy.kind === 'winds') {
-      if (tile.suit === 'w' && (tile.num === seatWind || tile.num === roundWind)) score += 8;
+      if (tile.suit === 'w' && (tile.num === seatWind || tile.num === roundWind)) score += 12;
+      if (tile.suit === 'd') score += 4;
+    } else if (strategy.kind === 'leanFlush') {
+      if (tile.suit === strategy.suit) score += 8;
+      else if (Tiles.isSuited(tile))   score -= 6;
     }
 
     // General honor handling
@@ -137,15 +164,19 @@
   function wantsPong(player, tile, seatWind, roundWind) {
     const strategy = pickStrategy(player, seatWind, roundWind);
 
-    // Dragons & yours-wind: always
+    // Dragons & yours-wind: always (each is +1 tai, stacks)
     if (tile.suit === 'd') return true;
     if (tile.suit === 'w' && (tile.num === seatWind || tile.num === roundWind)) return true;
+
+    // Honors push: pong any honor tile we already have a pair of
+    if (strategy.kind === 'allHonors') return true;
 
     // Foreign winds: usually skip
     if (tile.suit === 'w') return false;
 
     // Going flush — only own suit
-    if (strategy.kind === 'fullFlush' || strategy.kind === 'halfFlush') {
+    if (strategy.kind === 'fullFlush' || strategy.kind === 'halfFlush' ||
+        strategy.kind === 'leanFlush') {
       return tile.suit === strategy.suit;
     }
 
@@ -167,29 +198,35 @@
   function wantsChi(player, tiles, seatWind, roundWind) {
     const strategy = pickStrategy(player, seatWind, roundWind);
 
-    // All triplets locks chi out
-    if (strategy.kind === 'allTriplets') return false;
+    // All triplets / all honors locks chi out completely
+    if (strategy.kind === 'allTriplets' || strategy.kind === 'allHonors') return false;
 
-    // Flush — only chi if every tile is the target suit
-    if (strategy.kind === 'fullFlush' || strategy.kind === 'halfFlush') {
-      return tiles.every(t => t.suit === strategy.suit);
+    // Flush — only chi if every tile is the target suit (and even then sparingly,
+    // since chi exposes us; concealed bonus is +1 tai)
+    if (strategy.kind === 'fullFlush' || strategy.kind === 'halfFlush' ||
+        strategy.kind === 'leanFlush') {
+      if (!tiles.every(t => t.suit === strategy.suit)) return false;
+      return Math.random() < 0.5;
     }
 
-    // Dragon/wind focused — chi slows pong opportunities
+    // Dragon/wind focused — chi slows pong opportunities, very rare
     if (strategy.kind === 'dragons' || strategy.kind === 'winds') {
-      return Math.random() < 0.15;
+      return Math.random() < 0.05;
     }
 
-    // Standard mid-game
-    return Math.random() < 0.35;
+    // Standard mid-game — much more conservative; chi locks in a 1-tai filler
+    // and ruins both 'concealed' bonus and any flush ambition.
+    return Math.random() < 0.12;
   }
 
   // Called on AI's own turn — should we declare a concealed kong?
   function wantsConcealedKong(player, tiles, seatWind, roundWind) {
     const strategy = pickStrategy(player, seatWind, roundWind);
     // Skip if it breaks a flush in a different suit
-    if ((strategy.kind === 'fullFlush' || strategy.kind === 'halfFlush') &&
-        tiles[0].suit !== strategy.suit) return false;
+    if ((strategy.kind === 'fullFlush' || strategy.kind === 'halfFlush' ||
+         strategy.kind === 'leanFlush') && tiles[0].suit !== strategy.suit) return false;
+    if (strategy.kind === 'allHonors' &&
+        tiles[0].suit !== 'w' && tiles[0].suit !== 'd') return false;
     return true;
   }
 
@@ -200,8 +237,8 @@
   // unless it would obviously break a flush we're chasing.
   function wantsAddedKong(player, opt, seatWind, roundWind) {
     const strategy = pickStrategy(player, seatWind, roundWind);
-    if ((strategy.kind === 'fullFlush' || strategy.kind === 'halfFlush') &&
-        opt.addTile.suit !== strategy.suit) return false;
+    if ((strategy.kind === 'fullFlush' || strategy.kind === 'halfFlush' ||
+         strategy.kind === 'leanFlush') && opt.addTile.suit !== strategy.suit) return false;
     return true;
   }
 

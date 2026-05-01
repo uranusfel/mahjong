@@ -239,14 +239,13 @@
     const hasChi = allMelds.some(m => m.type === 'chi');
     if (!hasChi) breakdown.push({ name: 'All triplets (碰碰胡)', tai: 2 });
 
-    // ---- Sequence Hand 平胡 — every meld is chi, pair is "valueless"
-    //      (not dragon, not seat wind, not round wind). 3 tai.
+    // ---- Sequence Hand 平胡 — strict house rule: all chi, suited pair,
+    //      and absolutely no honor tiles, flowers, or animals anywhere.
     const allChi = allMelds.length > 0 && allMelds.every(m => m.type === 'chi');
-    const pairNum = parseInt(pair.slice(1), 10);
-    const pairIsValueless =
-      pair[0] !== 'd' &&
-      !(pair[0] === 'w' && (pairNum === ctx.seatWind || pairNum === ctx.roundWind));
-    if (allChi && pairIsValueless) {
+    const pairIsSuitedTile = pair[0] === 'm' || pair[0] === 'p' || pair[0] === 's';
+    const noHonorMelds = allMelds.every(m => m.base[0] !== 'd' && m.base[0] !== 'w');
+    const noBonuses    = ctx.bonuses.length === 0;
+    if (allChi && pairIsSuitedTile && noHonorMelds && noBonuses) {
       breakdown.push({ name: 'Sequence Hand (平胡)', tai: 3 });
     }
 
