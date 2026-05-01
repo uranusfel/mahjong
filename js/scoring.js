@@ -288,23 +288,16 @@
     if (flowers.length === 4) breakdown.push({ name: 'All 4 flowers', tai: 2 });
     if (seasons.length === 4) breakdown.push({ name: 'All 4 seasons', tai: 2 });
 
-    // ---- Animals (1=Cat, 2=Mouse, 3=Rooster, 4=Centipede). Singapore rules:
-    //   each animal = 1 tai; Cat+Mouse together = +1; Rooster+Centipede together = +1.
+    // ---- Animals (1=Cat, 2=Mouse, 3=Rooster, 4=Centipede).
+    //   Each animal = 1 tai. Combinations (cat+mouse, rooster+centipede,
+    //   all four) only trigger instant chip payouts at draw time — they
+    //   do NOT add tai to the winning hand.
     const animals = ctx.bonuses.filter(t => t.suit === 'a').map(t => t.num);
     for (const a of animals) {
       breakdown.push({
         name: `Animal: ${Tiles.ANIMAL_CN[a]} ${Tiles.ANIMAL_NAMES[a]}`,
         tai: 1,
       });
-    }
-    if (animals.includes(1) && animals.includes(2)) {
-      breakdown.push({ name: 'Cat catches mouse (貓鼠)', tai: 1 });
-    }
-    if (animals.includes(3) && animals.includes(4)) {
-      breakdown.push({ name: 'Rooster eats centipede (雞蜈)', tai: 1 });
-    }
-    if (animals.length === 4) {
-      breakdown.push({ name: 'All four animals', tai: 2 });
     }
 
     // (Self-draw 自摸 does NOT add a tai under house rules — it only changes payout.)
@@ -370,24 +363,18 @@
     return { breakdown, total: Math.min(total, cap), rawTotal: total, capped };
   }
 
-  // Singapore Mahjong points tables.
-  // Shooter (discard win): the discarder alone pays the winner this much.
+  // Singapore Mahjong points tables — doubling per tai, capped at 10 tai.
+  // Shooter: 1=4, 2=8, 3=16, 4=32, 5=64, 6=128, 7=256, 8=512, 9=1024, 10=2048
+  // Self-draw (each loser): 1=2, 2=4, 3=8, ..., 10=1024
   function taiToShooterPoints(tai) {
     if (tai <= 0) return 0;
-    if (tai === 1) return 4;
-    if (tai === 2) return 8;
-    if (tai === 3) return 16;
-    if (tai === 4) return 32;
-    return 64;   // 5+ tai (cap)
+    const t = Math.min(tai, 10);
+    return 1 << (t + 1);
   }
-  // Self-draw: each of the 3 losers pays the winner this much.
   function taiToSelfDrawPoints(tai) {
     if (tai <= 0) return 0;
-    if (tai === 1) return 2;
-    if (tai === 2) return 4;
-    if (tai === 3) return 8;
-    if (tai === 4) return 16;
-    return 32;   // 5+ tai (cap)
+    const t = Math.min(tai, 10);
+    return 1 << t;
   }
   // Legacy alias — kept so anything still calling taiToPoints keeps working.
   function taiToPoints(tai) { return taiToShooterPoints(tai); }

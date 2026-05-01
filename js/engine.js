@@ -38,7 +38,7 @@
       drawnTile: null,           // tile player just drew (not yet discarded)
       pendingClaims: [],         // claims awaiting decision
       phase: 'waitingDraw',      // 'waitingDraw'|'waitingDiscard'|'waitingClaim'|'gameOver'|'roundEnd'
-      taiCap: 5,
+      taiCap: 10,
       consecutiveBankerWins: 0,
       tilesUsed: 0,
     };

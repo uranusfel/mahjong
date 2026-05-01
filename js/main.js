@@ -15,7 +15,7 @@
       { name: 'Jing Wen' },
     ];
     state = Engine.newGameState({ players });
-    state.taiCap = parseInt($('opt-cap').value || '5', 10);
+    state.taiCap = parseInt($('opt-cap').value || '10', 10);
     Engine.startNewHand(state);
     render();
     // If banker is AI, auto-discard
@@ -114,6 +114,18 @@
   }
 
   function humanConcealedKong(tiles) {
+    // House rule: a concealed kong can also be robbed by anyone waiting on that tile.
+    const robbers = Engine.findKongRobbers(state, HUMAN_SEAT, tiles[0]);
+    if (robbers.length > 0) {
+      const r = robbers[0];
+      state.lastWinTile = tiles[0];
+      Engine.applyWin(state, r.seat, HUMAN_SEAT, r.tai);
+      render();
+      Sound.hu();
+      Render.toast(`${state.players[r.seat].name} ROBS THE KONG! 抢杠`, 1600);
+      setTimeout(showRoundResult, 900);
+      return;
+    }
     Engine.claimConcealedKong(state, HUMAN_SEAT, tiles);
     Sound.kong();
     flushBonusEvents();
@@ -410,6 +422,20 @@
   }
 
   function aiDeclareConcealedKong(player, tiles) {
+    // Anyone (incl. human) waiting on this tile may rob the concealed kong.
+    const robbers = Engine.findKongRobbers(state, player.seat, tiles[0]);
+    for (const r of robbers) {
+      const robber = state.players[r.seat];
+      if (robber.isHuman || AI.wantsWin()) {
+        state.lastWinTile = tiles[0];
+        Engine.applyWin(state, r.seat, player.seat, r.tai);
+        render();
+        Sound.hu();
+        Render.toast(`${robber.name} ROBS THE KONG! 抢杠`, 1600);
+        setTimeout(showRoundResult, 900);
+        return;
+      }
+    }
     Engine.claimConcealedKong(state, player.seat, tiles);
     Sound.kong();
     flushBonusEvents();
