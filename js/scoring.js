@@ -246,7 +246,7 @@
     const noHonorMelds = allMelds.every(m => m.base[0] !== 'd' && m.base[0] !== 'w');
     const noBonuses    = ctx.bonuses.length === 0;
     if (allChi && pairIsSuitedTile && noHonorMelds && noBonuses) {
-      breakdown.push({ name: 'Sequence Hand (平胡)', tai: 3 });
+      breakdown.push({ name: 'Sequence Hand (平胡)', tai: 4 });
     }
 
     // ---- Flush
