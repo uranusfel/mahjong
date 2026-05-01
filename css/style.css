@@ -55,7 +55,63 @@ html, body {
   user-select: none;
 }
 
-#app { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+#app {
+  width: 100vw;
+  height: 100vh;     /* fallback for old browsers */
+  height: 100dvh;    /* matches the actually-visible area on mobile (iOS Safari URL bar) */
+  position: relative;
+  overflow: hidden;
+}
+
+/* ============================================================
+   MOBILE — tighten tile + chrome sizes so 13 hand tiles + rack
+   side panel fit inside narrow viewports without clipping.
+   ============================================================ */
+@media (max-width: 700px) {
+  :root {
+    --tile-w:       18px;
+    --tile-h:       26px;
+    --tile-w-sm:    13px;
+    --tile-h-sm:    20px;
+    --wall-w:       9px;
+    --wall-h:       16px;
+    --opp-w:        12px;
+    --opp-h:        18px;
+    --discard-w:    13px;
+    --discard-h:    18px;
+    --border-h:     40px;
+    --rack-h:       72px;
+  }
+  .rack-side             { min-width: 56px; gap: 2px; }
+  .rack-side .flowers    { padding: 2px 4px; gap: 2px; }
+  .name-bottom           { font-size: 11px; gap: 4px; }
+  .name-bottom .score    { font-size: 10px; }
+  .text-btn              { font-size: 13px; letter-spacing: 0.5px; }
+  .round-line            { font-size: 11px; gap: 4px; }
+  .round-line .cn        { font-size: 13px; }
+  .tiles-left-pill       { font-size: 9px; padding: 1px 6px; margin-left: 4px; }
+  .player-name           { font-size: 12px; }
+  .wind-label            { font-size: 11px; }
+  .wind-label .cn        { font-size: 13px; }
+  .hand-area             { padding: 4px 8px 8px; }
+  .hand-rack             { padding: 4px 8px 6px; gap: 6px; min-height: 60px; }
+  .player-hand,
+  .player-draw           { gap: 1px; }
+  .actions               { right: 8px; bottom: calc(var(--rack-h) + 6px); gap: 4px; }
+  .action-btn            { font-size: 12px; padding: 6px 12px; }
+}
+
+/* Phones smaller than ~iPhone SE width — shrink one more notch. */
+@media (max-width: 420px) {
+  :root {
+    --tile-w:    16px;
+    --tile-h:    24px;
+    --rack-h:    66px;
+  }
+  .rack-side { min-width: 48px; }
+  .frame-top-left,
+  .frame-top-right { gap: 6px; }
+}
 
 /* ============================================================
    RED CHINESE-PATTERN BORDER FRAME
