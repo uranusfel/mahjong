@@ -23,13 +23,64 @@
     state.taiCap = parseInt($('opt-cap').value || '10', 10);
     Engine.startNewHand(state);
     render();
-    // If banker is AI, auto-discard
-    if (state.players[state.currentTurn].isHuman) {
-      maybeShowOwnTurnActions();
-    } else {
-      setTimeout(aiAct, 800);
+    // Easter egg first — if it triggers, the hand ends immediately, no AI tick needed.
+    if (!handleSpecialHand()) {
+      if (state.players[state.currentTurn].isHuman) {
+        maybeShowOwnTurnActions();
+      } else {
+        setTimeout(aiAct, 800);
+      }
     }
     wireOptions();
+  }
+
+  // ---- Easter egg: every 4th hand, ME wins ----------------------------
+  // Heavenly Hand 天胡 if I'm dealer (max tai, self-draw on initial deal).
+  // Earthly Hand  地胡 if I'm not dealer (max tai, on banker's first discard).
+  // Returns true if the special hand was triggered (caller should not
+  // schedule the normal turn tick — the round-end modal is on the way).
+  function handleSpecialHand() {
+    if (state.handNumber % 4 !== 0) return false;
+    if (state.banker === HUMAN_SEAT) {
+      triggerHeavenlyWin();
+      return true;
+    }
+    // Otherwise we wait for the banker's first discard. afterDiscard intercepts.
+    state.pendingEarthlyWin = true;
+    return false;
+  }
+
+  function triggerHeavenlyWin() {
+    const human = state.players[HUMAN_SEAT];
+    state.lastWinTile = human.concealed[human.concealed.length - 1];
+    const taiResult = {
+      breakdown: [{ name: 'Heavenly Hand (天胡)', tai: state.taiCap }],
+      total: state.taiCap,
+      rawTotal: state.taiCap,
+      capped: false,
+    };
+    Engine.applyWin(state, HUMAN_SEAT, HUMAN_SEAT, taiResult);
+    render();
+    Render.toast('天胡 — HEAVENLY HAND!', 1800);
+    Sound.hu();
+    if (Sound.speak) Sound.speak('天胡', { rate: 1.0 });
+    setTimeout(showRoundResult, 1000);
+  }
+
+  function triggerEarthlyWin(winTile, fromSeat) {
+    state.lastWinTile = winTile;
+    const taiResult = {
+      breakdown: [{ name: 'Earthly Hand (地胡)', tai: state.taiCap }],
+      total: state.taiCap,
+      rawTotal: state.taiCap,
+      capped: false,
+    };
+    Engine.applyWin(state, HUMAN_SEAT, fromSeat, taiResult);
+    render();
+    Render.toast('地胡 — EARTHLY HAND!', 1800);
+    Sound.hu();
+    if (Sound.speak) Sound.speak('地胡', { rate: 1.0 });
+    setTimeout(showRoundResult, 1000);
   }
 
   function $(id) { return document.getElementById(id); }
@@ -185,6 +236,16 @@
   // ---- Turn engine -----------------------------------------------------
 
   function afterDiscard() {
+    // Earthly Hand intercept — every 4th hand, the banker's very first discard
+    // is auto-claimed by the human as a max-tai win.
+    if (state.pendingEarthlyWin &&
+        state.discards.length === 1 &&
+        state.lastDiscard.fromSeat === state.banker) {
+      state.pendingEarthlyWin = false;
+      triggerEarthlyWin(state.lastDiscard.tile, state.lastDiscard.fromSeat);
+      return;
+    }
+
     Render.toast(`${state.players[state.lastDiscard.fromSeat].name} discards`, 800);
     // Find any claims
     state.pendingClaims = Engine.findClaims(state);
@@ -522,6 +583,7 @@
       state.lastWinTile = null;
       Engine.startNewHand(state);
       render();
+      if (handleSpecialHand()) return;   // 4th-hand easter-egg auto-win
       if (!state.players[state.currentTurn].isHuman) {
         setTimeout(aiAct, 800);
       } else {
