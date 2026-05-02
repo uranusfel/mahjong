@@ -110,6 +110,17 @@
           msg: `${player.name}: rooster eats centipede 雞蜈! +$2 from each`,
         });
       }
+      // All four animals — bonus payout, $4 from each opponent.
+      // Stacks on top of the pair payouts above (so the 4th animal triggers
+      // both its pair bonus AND this full-set bonus on the same draw).
+      if (has(ANIMAL_CAT) && has(ANIMAL_MOUSE) &&
+          has(ANIMAL_ROOSTER) && has(ANIMAL_CENT)) {
+        bonusPayoutAll(state, seat, 4);
+        state.lastBonusEvents.push({
+          type: 'fourAnimals', seat, payout: 4,
+          msg: `${player.name}: ALL 4 ANIMALS 四動物! +$4 from each`,
+        });
+      }
     }
   }
 
