@@ -751,6 +751,22 @@ html, body {
   position: relative;
 }
 .wait-panel .wait-tile.dead { opacity: 0.35; filter: grayscale(0.8); }
+.wait-panel .noten {
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #f5a3a3;
+  opacity: 0.85;
+}
+
+/* Preview mode — hovering a hand tile shows the WAITS if you discarded it.
+   Distinct blue accent so it never looks like your real tenpai info. */
+.wait-panel.preview {
+  border-color: #4cb6ff;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.55), 0 0 12px rgba(76,182,255,0.45);
+}
+.wait-panel.preview .label { color: #4cb6ff; }
+.wait-panel.preview .noten { color: #c5d8e8; }
 .wait-panel .wait-tile .left-count {
   position: absolute;
   top: -6px;

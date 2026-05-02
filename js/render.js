@@ -198,6 +198,24 @@
     const sortedHand = Tiles.sortTiles(handTiles);
     const isMyTurn = state.currentTurn === 0 && state.phase === 'waitingDiscard';
 
+    // Hover preview: when it's the human's turn and they hover a tile, the
+    // wait panel temporarily shows what waits they'd have IF they discarded
+    // that tile. mouseleave restores the natural (drawn-tile-discarded) view.
+    const attachDiscardPreview = (el, tile) => {
+      if (!isMyTurn) return;
+      el.addEventListener('mouseenter', () => {
+        const waits = computeWaitsIfDiscard(state, tile);
+        paintWaitPanel(waits, {
+          preview: true,
+          showEmpty: true,
+          labelHtml: `IF DISCARD <span class="cn">舍</span>`,
+        });
+      });
+      el.addEventListener('mouseleave', () => {
+        renderWaitPanel(state);
+      });
+    };
+
     let prevSuit = null;
     for (const t of sortedHand) {
       // Insert a small gap when the suit group changes — easier to read at a glance.
@@ -214,6 +232,7 @@
         if (isMyTurn) callbacks.onDiscard(t);
       });
       attachTileCounterHover(el, t, state);
+      attachDiscardPreview(el, t);
       handEl.appendChild(el);
     }
 
@@ -224,6 +243,7 @@
         if (isMyTurn) callbacks.onDiscard(drawnTile);
       });
       attachTileCounterHover(el, drawnTile, state);
+      attachDiscardPreview(el, drawnTile);
       drawEl.appendChild(el);
     } else {
       drawEl.style.opacity = '0';
@@ -242,9 +262,32 @@
     return out;
   })();
 
-  // Find every tile the human is currently waiting on for a valid (>0 tai) win.
-  // If they're holding the just-drawn 14th tile, computes waits as if they
-  // discarded that tile (the "do nothing" baseline).
+  // Generic wait-tile finder. Given a 13-tile hand shape, returns every tile
+  // that would complete a >=1 tai win.
+  function computeWaitsFor(state, baseHand, melds, bonuses, seatWind) {
+    if (baseHand.length + melds.length * 3 !== 13) return [];
+    const waits = [];
+    for (const probe of ALL_TILE_TYPES) {
+      if (!Scoring.checkWin(baseHand, probe, melds)) continue;
+      const tai = Scoring.computeTai({
+        concealed: baseHand,
+        winningTile: probe,
+        melds,
+        bonuses,
+        seatWind,
+        roundWind: state.roundWind,
+        selfDraw: false,
+      }, state.taiCap);
+      if (tai.total <= 0) continue;
+      const seen = countSeenTiles(state, probe.suit, probe.num);
+      waits.push({ tile: probe, tai: tai.total, remaining: Math.max(0, 4 - seen) });
+    }
+    return waits;
+  }
+
+  // Find every tile the human is currently waiting on. If they're holding the
+  // just-drawn 14th tile, computes waits as if they discarded it (the baseline
+  // "do nothing" view).
   function computeHumanWaits(state) {
     const human = state.players[0];
     if (!human || state.phase === 'roundEnd' || state.phase === 'gameOver') return [];
@@ -256,64 +299,72 @@
       ? human.concealed.filter(t => t.uid !== drawn.uid)
       : human.concealed.slice();
 
-    // Tenpai shape: baseHand + 3 per existing meld + 1 winning tile = 14.
-    if (baseHand.length + human.melds.length * 3 !== 13) return [];
-
-    const waits = [];
-    for (const probe of ALL_TILE_TYPES) {
-      if (!Scoring.checkWin(baseHand, probe, human.melds)) continue;
-      const tai = Scoring.computeTai({
-        concealed: baseHand,
-        winningTile: probe,
-        melds: human.melds,
-        bonuses: human.bonuses,
-        seatWind: human.seatWind,
-        roundWind: state.roundWind,
-        selfDraw: false,
-      }, state.taiCap);
-      if (tai.total <= 0) continue;
-      const seen = countSeenTiles(state, probe.suit, probe.num);
-      waits.push({ tile: probe, tai: tai.total, remaining: Math.max(0, 4 - seen) });
-    }
-    return waits;
+    return computeWaitsFor(state, baseHand, human.melds, human.bonuses, human.seatWind);
   }
 
-  function renderWaitPanel(state) {
+  // What would the human's waits be if they discarded `tile` from their hand?
+  // Used by the hover preview. Returns [] if the resulting shape isn't tenpai.
+  function computeWaitsIfDiscard(state, tile) {
+    const human = state.players[0];
+    if (!human) return [];
+    const baseHand = human.concealed.filter(t => t.uid !== tile.uid);
+    return computeWaitsFor(state, baseHand, human.melds, human.bonuses, human.seatWind);
+  }
+
+  // Single point that fills + shows/hides the wait panel. `opts` controls the
+  // header label and whether to show "noten" when the hand isn't tenpai
+  // (true for hypothetical previews so the panel stays visible during hover).
+  function paintWaitPanel(waits, opts) {
     const el = $('wait-panel');
     if (!el) return;
-    const waits = computeHumanWaits(state);
-    if (waits.length === 0) {
-      el.classList.remove('show');
+    opts = opts || {};
+    const showEmpty = !!opts.showEmpty;
+    const isPreview = !!opts.preview;
+
+    if (waits.length === 0 && !showEmpty) {
+      el.classList.remove('show', 'preview');
       el.innerHTML = '';
       return;
     }
-    // Order: highest remaining count first, then by tile sort key (m→p→s→w→d).
-    waits.sort((a, b) => {
-      if (b.remaining !== a.remaining) return b.remaining - a.remaining;
-      return Tiles.tileSortKey(a.tile) - Tiles.tileSortKey(b.tile);
-    });
 
     el.innerHTML = '';
+    el.classList.toggle('preview', isPreview);
+
     const label = document.createElement('span');
     label.className = 'label';
-    label.innerHTML = `TENPAI <span class="cn">听</span>`;
+    label.innerHTML = opts.labelHtml || `TENPAI <span class="cn">听</span>`;
     el.appendChild(label);
 
-    const wrap = document.createElement('div');
-    wrap.className = 'waits';
-    for (const w of waits) {
-      const tile = document.createElement('div');
-      tile.className = 'wait-tile' + (w.remaining === 0 ? ' dead' : '');
-      tile.style.backgroundImage = Tiles.tileSprite(w.tile);
-      tile.title = `${Tiles.tileName(w.tile)} — ${w.remaining} left, ${w.tai} tai`;
-      const badge = document.createElement('span');
-      badge.className = 'left-count';
-      badge.textContent = w.remaining;
-      tile.appendChild(badge);
-      wrap.appendChild(tile);
+    if (waits.length === 0) {
+      const noten = document.createElement('span');
+      noten.className = 'noten';
+      noten.textContent = 'noten';
+      el.appendChild(noten);
+    } else {
+      const sorted = waits.slice().sort((a, b) => {
+        if (b.remaining !== a.remaining) return b.remaining - a.remaining;
+        return Tiles.tileSortKey(a.tile) - Tiles.tileSortKey(b.tile);
+      });
+      const wrap = document.createElement('div');
+      wrap.className = 'waits';
+      for (const w of sorted) {
+        const tile = document.createElement('div');
+        tile.className = 'wait-tile' + (w.remaining === 0 ? ' dead' : '');
+        tile.style.backgroundImage = Tiles.tileSprite(w.tile);
+        tile.title = `${Tiles.tileName(w.tile)} — ${w.remaining} left, ${w.tai} tai`;
+        const badge = document.createElement('span');
+        badge.className = 'left-count';
+        badge.textContent = w.remaining;
+        tile.appendChild(badge);
+        wrap.appendChild(tile);
+      }
+      el.appendChild(wrap);
     }
-    el.appendChild(wrap);
     el.classList.add('show');
+  }
+
+  function renderWaitPanel(state) {
+    paintWaitPanel(computeHumanWaits(state), { preview: false });
   }
 
   // ---- Player names + scores + active turn highlight -----------------
