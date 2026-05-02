@@ -198,7 +198,16 @@
     const sortedHand = Tiles.sortTiles(handTiles);
     const isMyTurn = state.currentTurn === 0 && state.phase === 'waitingDiscard';
 
+    let prevSuit = null;
     for (const t of sortedHand) {
+      // Insert a small gap when the suit group changes — easier to read at a glance.
+      if (prevSuit && prevSuit !== t.suit) {
+        const gap = document.createElement('div');
+        gap.className = 'group-gap';
+        handEl.appendChild(gap);
+      }
+      prevSuit = t.suit;
+
       const el = tileFaceEl(t, { dataUid: t.uid });
       if (!isMyTurn) el.classList.add('no-hover');
       el.addEventListener('click', () => {
@@ -220,6 +229,91 @@
       drawEl.style.opacity = '0';
     }
     drawEl.style.opacity = drawnTile ? '1' : '0';
+  }
+
+  // ---- Tenpai / wait-tile panel --------------------------------------
+
+  // Every tile type that exists in the wall (suited 1-9, winds 1-4, dragons 1-3).
+  const ALL_TILE_TYPES = (() => {
+    const out = [];
+    for (const suit of ['m', 'p', 's']) for (let n = 1; n <= 9; n++) out.push({ suit, num: n });
+    for (let n = 1; n <= 4; n++) out.push({ suit: 'w', num: n });
+    for (let n = 1; n <= 3; n++) out.push({ suit: 'd', num: n });
+    return out;
+  })();
+
+  // Find every tile the human is currently waiting on for a valid (>0 tai) win.
+  // If they're holding the just-drawn 14th tile, computes waits as if they
+  // discarded that tile (the "do nothing" baseline).
+  function computeHumanWaits(state) {
+    const human = state.players[0];
+    if (!human || state.phase === 'roundEnd' || state.phase === 'gameOver') return [];
+
+    const drawn = (state.currentTurn === 0 && state.drawnTile &&
+                   human.concealed.includes(state.drawnTile))
+      ? state.drawnTile : null;
+    const baseHand = drawn
+      ? human.concealed.filter(t => t.uid !== drawn.uid)
+      : human.concealed.slice();
+
+    // Tenpai shape: baseHand + 3 per existing meld + 1 winning tile = 14.
+    if (baseHand.length + human.melds.length * 3 !== 13) return [];
+
+    const waits = [];
+    for (const probe of ALL_TILE_TYPES) {
+      if (!Scoring.checkWin(baseHand, probe, human.melds)) continue;
+      const tai = Scoring.computeTai({
+        concealed: baseHand,
+        winningTile: probe,
+        melds: human.melds,
+        bonuses: human.bonuses,
+        seatWind: human.seatWind,
+        roundWind: state.roundWind,
+        selfDraw: false,
+      }, state.taiCap);
+      if (tai.total <= 0) continue;
+      const seen = countSeenTiles(state, probe.suit, probe.num);
+      waits.push({ tile: probe, tai: tai.total, remaining: Math.max(0, 4 - seen) });
+    }
+    return waits;
+  }
+
+  function renderWaitPanel(state) {
+    const el = $('wait-panel');
+    if (!el) return;
+    const waits = computeHumanWaits(state);
+    if (waits.length === 0) {
+      el.classList.remove('show');
+      el.innerHTML = '';
+      return;
+    }
+    // Order: highest remaining count first, then by tile sort key (m→p→s→w→d).
+    waits.sort((a, b) => {
+      if (b.remaining !== a.remaining) return b.remaining - a.remaining;
+      return Tiles.tileSortKey(a.tile) - Tiles.tileSortKey(b.tile);
+    });
+
+    el.innerHTML = '';
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.innerHTML = `TENPAI <span class="cn">听</span>`;
+    el.appendChild(label);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'waits';
+    for (const w of waits) {
+      const tile = document.createElement('div');
+      tile.className = 'wait-tile' + (w.remaining === 0 ? ' dead' : '');
+      tile.style.backgroundImage = Tiles.tileSprite(w.tile);
+      tile.title = `${Tiles.tileName(w.tile)} — ${w.remaining} left, ${w.tai} tai`;
+      const badge = document.createElement('span');
+      badge.className = 'left-count';
+      badge.textContent = w.remaining;
+      tile.appendChild(badge);
+      wrap.appendChild(tile);
+    }
+    el.appendChild(wrap);
+    el.classList.add('show');
   }
 
   // ---- Player names + scores + active turn highlight -----------------
@@ -370,11 +464,12 @@
     renderDiscards(state);
     renderPlayerHand(state, callbacks);
     renderNames(state);
+    renderWaitPanel(state);
   }
 
   window.Render = {
     render, renderActions, renderPlayerHand,
-    toast, showResult,
+    toast, showResult, computeHumanWaits,
   };
 
 })();

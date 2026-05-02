@@ -7,6 +7,11 @@
   const HUMAN_SEAT = 0;
   let state = null;
 
+  // AI / animation pacing. The FASTER button toggles this between normal and rapid.
+  let aiSpeed = 1.0;
+  const _setTimeout = window.setTimeout;
+  function setTimeout(fn, ms) { return _setTimeout(fn, ms * aiSpeed); }
+
   function init() {
     const players = [
       { name: 'Myself', isHuman: true },
@@ -544,9 +549,49 @@
     Sound.setEnabled(soundChk.checked);
     soundChk.onchange = () => Sound.setEnabled(soundChk.checked);
 
-    // Top bar emote buttons (purely cosmetic)
-    document.querySelectorAll('.huat-btn').forEach(btn => {
-      btn.onclick = () => Render.toast(btn.textContent.toUpperCase() + '!');
+    // Top bar emote buttons — kopitiam-style shouts + Mandarin TTS.
+    // FASTER actually does something now: toggles AI/animation speed between normal and rapid.
+    const EMOTE = {
+      huat:   { toast: 'HUAT AH! 发啊!',     speak: '发啊' },
+      walao:  { toast: 'WALAO EH! 哇咧!',    speak: '哇咧' },
+    };
+    document.querySelectorAll('.text-btn[data-call]').forEach(btn => {
+      btn.onclick = () => {
+        const call = btn.dataset.call;
+        if (call === 'faster') {
+          aiSpeed = (aiSpeed >= 1.0) ? 0.4 : 1.0;
+          btn.classList.toggle('active', aiSpeed < 1.0);
+          Render.toast(aiSpeed < 1.0 ? 'FASTER LAH! 快点!' : 'NORMAL SPEED', 1100);
+          if (Sound.speak) Sound.speak(aiSpeed < 1.0 ? '快点' : '正常', { rate: 1.1 });
+          return;
+        }
+        const e = EMOTE[call];
+        if (!e) return;
+        Render.toast(e.toast, 1200);
+        if (Sound.speak) Sound.speak(e.speak, { rate: 1.05, pitch: 1.05 });
+      };
+    });
+
+    // Keyboard shortcuts for action buttons. Mahjong is fast — this saves clicks.
+    //   H = HU, P = PONG, K = KONG, C = CHI, ESC/X = PASS, Enter = first action.
+    document.addEventListener('keydown', (e) => {
+      const tag = e.target && e.target.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      const buttons = Array.from(document.querySelectorAll('#actions .action-btn'));
+      if (buttons.length === 0) return;
+      const find = (cls) => buttons.find(b => b.classList.contains(cls));
+      const k = e.key.toLowerCase();
+      let target = null;
+      if      (k === 'h') target = find('hu');
+      else if (k === 'p') target = find('pong');
+      else if (k === 'k') target = find('kong');
+      else if (k === 'c') target = find('chi');
+      else if (k === 'escape' || k === 'x') target = find('pass');
+      else if (k === 'enter') target = buttons[0];
+      if (target) {
+        target.click();
+        e.preventDefault();
+      }
     });
   }
 
